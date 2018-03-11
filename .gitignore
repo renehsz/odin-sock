@@ -1,0 +1,6 @@
+test
+test.exe
+*.o
+*.ll
+*.obj
+
