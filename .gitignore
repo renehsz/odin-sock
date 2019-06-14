@@ -3,4 +3,5 @@ test.exe
 *.o
 *.ll
 *.obj
+*.swp
 

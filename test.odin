@@ -1,25 +1,27 @@
-import "socket.odin";
-import "core:os.odin"
-using import "core:c.odin"
+package main
+
+using import "sock"
+import "core:c"
+import "core:os"
 
 main :: proc() {
-	serv_addr: socket.Addrin;
+	serv_addr: Addrin;
 
-	listenfd := socket.socket(socket.AddrFamily.INET, socket.Type.STREAM, 0);
+	listenfd := socket(AddrFamily.INET, Type.STREAM, 0);
 
-	serv_addr.family = cast(c_short)socket.AddrFamily.INET;
-	serv_addr.addr.addr = cast(c_ulong)socket.htonl(0);
-	serv_addr.port = socket.htons(8080);
+	serv_addr.family = cast(c.short) AddrFamily.INET;
+	serv_addr.addr.addr = cast(c.ulong) htonl(0);
+	serv_addr.port = htons(8080);
 
-	socket.bind(listenfd, &serv_addr, size_of(serv_addr));
+	bind(listenfd, &serv_addr, size_of(serv_addr));
 
-	socket.listen(listenfd, 10);
+	listen(listenfd, 10);
 
 	for {
-		connfd := socket.accept(listenfd, nil, 0);
+		connfd := accept(listenfd, nil, 0);
 
 		os.write_string(cast(os.Handle)connfd, "Hello, sailor!\n");
 
-		os.close(cast(os.Handle)connfd);
+		os.close(cast(os.Handle) connfd);
 	}
 }

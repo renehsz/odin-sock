@@ -1,8 +1,10 @@
-foreign import libc "system:c";
-using import "core:c.odin";
+package sock
+
+foreign import libc "system:c"
+import "core:c"
 
 // Communication Domain/Address Family
-AddrFamily :: enum c_int {
+AddrFamily :: enum c.int {
 	UNSPEC    = 0,
 	UNIX      = 1, // Local communication
 	INET      = 2, // IPv4 Internet protocols
@@ -18,56 +20,56 @@ AddrFamily :: enum c_int {
 	MAX       = 12,
 }
 
-Type :: enum c_int {
+Type :: enum c.int {
 	STREAM    = 1,  // stream (connection) socket
 	DGRAM     = 2,  // datagram (conn.less) socket
 	RAW       = 3,  // raw socket
 	RDM       = 4,  // reliably-delivered message
 	SEQPACKET = 5,  // sequential packet socket
 	PACKET    = 10, /* linux specific way of
-	                 * getting packets at the dev
+	                 * getting packets at the device
 	                 * level.  For writing rarp and
-	                 * other similar things on the
+	                 * other similar things at the
 	                 * user level. Obsolete.       */
 }
 
 Addr :: struct {
-	family: c_ushort, // address family, xxx
+	family: c.ushort, // address family, xxx
 	data:   [14]byte, // 14 bytes of protocol address
 }
 
 InAddr :: struct {
-	addr: c_ulong,
+	addr: c.ulong,
 }
 
 Addrin :: struct {
-	family: c_short,
-	port:   c_ushort,
+	family: c.short,
+	port:   c.ushort,
 	addr:   InAddr,
 	zero:   [8]byte,
 }
 
 Linger :: struct {
-	onoff:  c_int, // Linger active
-	linger: c_int, // How long to linger for
+	onoff:  c.int, // Linger active
+	linger: c.int, // How long to linger for
 }
 
 Msghdr :: struct {
 	name:       rawptr,  // Socket name
-	namelen:    c_int,   // Length of name
+	namelen:    c.int,   // Length of name
 	iov:        rawptr,  // Data blocks
-	iovlen:     c_int,   // Number of blocks
+	iovlen:     c.int,   // Number of blocks
 	control:    rawptr,  // Per protocol magic (eg BSD file descriptor passing)
-	controllen: c_int,   // Length of rights list
-	flags:      c_int,   // 4.4 BSD item we dont use
+	controllen: c.int,   // Length of rights list
+	flags:      c.int,   // 4.4 BSD item we dont use
 }
 
 Addrinfo :: struct {
-	flags:     c_int,
+	flags:     c.int,
 	family:    AddrFamily,
 	socktype:  Type,
-	protocol:  c_int,
-	addrlen:   c_uint,
+	protocol:  c.int,
+	addrlen:   c.uint,
 	addr:      ^Addr,
 	canonname: ^byte,
 	next:      ^Addrinfo,
@@ -76,61 +78,61 @@ Addrinfo :: struct {
 Hostent :: struct {
 	name:      ^byte,  // The official name of the host
 	aliases:   ^^byte, // An array of alternative names for the host, terminated by a null pointer
-	addrtype:  c_int,  // The type of address; always AF_INET or AF_INET6 at present.
-	length:    c_int,  // The length of the address in bytes.
+	addrtype:  c.int,  // The type of address; always AF_INET or AF_INET6 at present.
+	length:    c.int,  // The length of the address in bytes.
 	addr_list: ^^byte, // An array of pointers to network addresses for the host (in network byte order), terminated by a null pointer.
 }
 
 Protoent :: struct {
 	name:    ^byte,  // official protocol name
 	aliases: ^^byte, // alias list
-	proto:   c_int,  // protocol #
+	proto:   c.int,  // protocol #
 }
 
 Serevent :: struct {
 	name:    ^byte,  // official service name
 	aliases: ^^byte, // alias list
-	port:    c_int,  // port #
+	port:    c.int,  // port #
 	proto:   ^byte,  // protocol to use
 }
 
 Netent :: struct {
 	name:     ^byte,
 	aliases:  ^^byte,
-	addrtype: c_int,
-	net:      c_ulong,
+	addrtype: c.int,
+	net:      c.ulong,
 }
 
 Rpcent :: struct {
 	name:    ^byte,
 	aliases: ^^byte,
-	proto:   c_int,
+	proto:   c.int,
 }
 
 SOMAXCONN :: 128;
 
 @(default_calling_convention="c")
 foreign libc {
-	h_errno: c_int;
+	h_errno: c.int;
 
-	socket        :: proc(domain: AddrFamily, typ: Type, protocol: c_int) -> c_int ---;
-	accept        :: proc(sockfd: c_int, addr: ^Addr, addrlen: c_uint) -> c_int ---;
-	accept4       :: proc(sockfd: c_int, addr: ^Addr, addrlen: c_uint, flags: c_int) -> c_int ---;
-	bind          :: proc(sockfd: c_int, addr: ^Addrin, addrlen: c_uint) -> c_int ---;
-	connect       :: proc(sockfd: c_int, addr: ^Addr, addrlen: c_uint) -> c_int ---;
-	getsockname   :: proc(sockfd: c_int, addr: ^Addr, addrlen: c_uint) -> c_int ---;
-	listen        :: proc(sockfd, backlog: c_int) -> c_int ---;
-	getifaddrs    :: proc(ifap: ^rawptr) -> c_int ---;
+	socket        :: proc(domain: AddrFamily, typ: Type, protocol: c.int) -> c.int ---;
+	accept        :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
+	accept4       :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint, flags: c.int) -> c.int ---;
+	bind          :: proc(sockfd: c.int, addr: ^Addrin, addrlen: c.uint) -> c.int ---;
+	connect       :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
+	getsockname   :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
+	listen        :: proc(sockfd, backlog: c.int) -> c.int ---;
+	getifaddrs    :: proc(ifap: ^rawptr) -> c.int ---;
 	freeifaddrs   :: proc(ifa: rawptr) ---;
-	getaddrinfo   :: proc(node, service: ^byte, hints: ^Addrinfo, res: ^^Addrinfo) -> c_int ---;
+	getaddrinfo   :: proc(node, service: ^byte, hints: ^Addrinfo, res: ^^Addrinfo) -> c.int ---;
 	freeaddrinfo  :: proc(res: ^Addrinfo) ---;
 	gai_strerror  :: proc(res: ^Addrinfo) -> ^byte ---;
 	gethostbyname :: proc(name: ^byte) -> ^Hostent ---;
-	gethostbyaddr :: proc(addr: rawptr, len: c_uint, typ: c_int) -> ^Hostent ---;
-	sethostent    :: proc(stayopen: c_int) ---;
+	gethostbyaddr :: proc(addr: rawptr, len: c.uint, typ: c.int) -> ^Hostent ---;
+	sethostent    :: proc(stayopen: c.int) ---;
 	endhostent    :: proc() ---;
 	herror        :: proc(s: ^byte) ---;
-	hstrerror     :: proc(err: c_int) -> ^byte ---;
+	hstrerror     :: proc(err: c.int) -> ^byte ---;
 	gethostent    :: proc() -> ^Hostent ---;
 
 	htonl         :: proc(hostlong: u32) -> u32 ---;
@@ -275,3 +277,4 @@ EDQUOT         :: 122;     // Quota exceeded
 
 ENOMEDIUM      :: 123;     // No medium found
 EMEDIUMTYPE    :: 124;     // Wrong medium type
+
