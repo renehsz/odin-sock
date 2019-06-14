@@ -2,6 +2,15 @@ package sock
 
 foreign import libc "system:c"
 import "core:c"
+import "core:os"
+
+/* NOTE(renehsz):
+ *  I'm still unsure about whether I should use primitive types or define my
+ *  own destinct ones. E.g.: socklen_t, ...
+ *  Also I'm partially not sure whether to put the C defines in enums or in
+ *  constants (currently there's both, which is stupid).
+ *  External feedback is highly appreciated.
+ */
 
 // Communication Domain/Address Family
 AddrFamily :: enum c.int {
@@ -61,51 +70,100 @@ Msghdr :: struct {
 	iovlen:     c.int,   // Number of blocks
 	control:    rawptr,  // Per protocol magic (eg BSD file descriptor passing)
 	controllen: c.int,   // Length of rights list
-	flags:      c.int,   // 4.4 BSD item we dont use
+	flags:      c.int,   // 4.4 BSD field we dont use
 }
 
 Addrinfo :: struct {
-	flags:     c.int,
+	flags:     AddrinfoFlags,
 	family:    AddrFamily,
 	socktype:  Type,
 	protocol:  c.int,
 	addrlen:   c.uint,
 	addr:      ^Addr,
-	canonname: ^byte,
+	canonname: cstring,
 	next:      ^Addrinfo,
 }
 
+AddrinfoFlags :: enum c.int {
+	AI_PASSIVE     = 0x0001, // Socket address is intended for bind.
+	AI_CANONNAME   = 0x0002, // Request for canonical name.
+	AI_NUMERICHOST = 0x0004, // Don't use name resolution.
+	AI_V4MAPPED    = 0x0008, // IPv4 mapped addresses are acceptable.
+	AI_ALL         = 0x0010, // Return IPv4 mapped and IPv6 addresses.
+	AI_ADDRCONFIG  = 0x0020, // Use configuration of this host to choose returned address type.
+	AI_NUMERICSERV = 0x0400, // Don't use name resolution.
+}
+
+// Error values for getaddrinfo
+AddrinfoError :: enum c.int {
+	EAI_BADFLAGS   = -1,  // Invalid value for flags field.
+	EAI_NONAME     = -2,  // NAME or SERVICE is unknown.
+	EAI_AGAIN      = -3,  // Temporary failure in name resolution.
+	EAI_FAIL       = -4,  // Non-recoverable failure in name resolution.
+	EAI_NODATA     = -5,  // No address associated with NAME.
+	EAI_FAMILY     = -6,  // family not supported.
+	EAI_SOCKTYPE   = -7,  // socktype not supported.
+	EAI_SERVICE    = -8,  // SERVICE not supported for socktype.
+	EAI_ADDRFAMILY = -9,  // Address family for NAME not supported.
+	EAI_MEMORY     = -10, // Memory allocation failure.
+	EAI_SYSTEM     = -11, // System error returned in errno.
+	EAI_OVERFLOW   = -12, // Argument buffer overflow.
+}
+
+// NOTE(renehsz): These are apparently GNU extensions... not sure if they are portable
+EAI_INPROGRESS  :: -100; // Processing request in progress.
+EAI_CANCELED    :: -101; // Request canceled.
+EAI_NOTCANCELED :: -102; // Request not canceled.
+EAI_ALLDONE     :: -103; // All request done.
+EAI_INTR        :: -104; // Interrupted by a signal.
+EAI_IDN_ENCODE  :: -105; // IDN encoding failed.
+
+Ifaddrs :: struct {
+	next:     ^Ifaddrs, // Next item in list
+	name:     cstring,  // Name of interface
+	flags:    c.uint,   // Flags from SIOCGIFFLAGS
+	addr:     ^Addr,    // Address of interface
+	netmask:  ^Addr,    // Netmask of interface
+	ifu_addr: ^Addr,    /* Broadcast address of interface if IFF_BROADCAST is set or
+	                     * point-to-point destination address if IFF_POINTTOPOINT is set
+	                     * in flags */
+	data:     rawptr,
+}
+
+NI_NUMERICHOST :: 1;
+NI_NUMERICSERV :: 2;
+
 Hostent :: struct {
-	name:      ^byte,  // The official name of the host
-	aliases:   ^^byte, // An array of alternative names for the host, terminated by a null pointer
-	addrtype:  c.int,  // The type of address; always AF_INET or AF_INET6 at present.
-	length:    c.int,  // The length of the address in bytes.
-	addr_list: ^^byte, // An array of pointers to network addresses for the host (in network byte order), terminated by a null pointer.
+	name:      cstring,  // The official name of the host
+	aliases:   ^cstring, // An array of alternative names for the host, terminated by a null pointer
+	addrtype:  c.int,    // The type of address; always AF_INET or AF_INET6 at present.
+	length:    c.int,    // The length of the address in bytes.
+	addr_list: ^cstring, // An array of pointers to network addresses for the host (in network byte order), terminated by a null pointer.
 }
 
 Protoent :: struct {
-	name:    ^byte,  // official protocol name
-	aliases: ^^byte, // alias list
-	proto:   c.int,  // protocol #
+	name:    cstring,  // official protocol name
+	aliases: ^cstring, // alias list
+	proto:   c.int,    // protocol #
 }
 
 Serevent :: struct {
-	name:    ^byte,  // official service name
-	aliases: ^^byte, // alias list
-	port:    c.int,  // port #
-	proto:   ^byte,  // protocol to use
+	name:    cstring,  // official service name
+	aliases: ^cstring, // alias list
+	port:    c.int,    // port #
+	proto:   cstring,  // protocol to use
 }
 
 Netent :: struct {
-	name:     ^byte,
-	aliases:  ^^byte,
+	name:     cstring,
+	aliases:  ^cstring,
 	addrtype: c.int,
 	net:      c.ulong,
 }
 
 Rpcent :: struct {
-	name:    ^byte,
-	aliases: ^^byte,
+	name:    cstring,
+	aliases: ^cstring,
 	proto:   c.int,
 }
 
@@ -115,24 +173,25 @@ SOMAXCONN :: 128;
 foreign libc {
 	h_errno: c.int;
 
-	socket        :: proc(domain: AddrFamily, typ: Type, protocol: c.int) -> c.int ---;
-	accept        :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
-	accept4       :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint, flags: c.int) -> c.int ---;
-	bind          :: proc(sockfd: c.int, addr: ^Addrin, addrlen: c.uint) -> c.int ---;
-	connect       :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
-	getsockname   :: proc(sockfd: c.int, addr: ^Addr, addrlen: c.uint) -> c.int ---;
-	listen        :: proc(sockfd, backlog: c.int) -> c.int ---;
-	getifaddrs    :: proc(ifap: ^rawptr) -> c.int ---;
-	freeifaddrs   :: proc(ifa: rawptr) ---;
-	getaddrinfo   :: proc(node, service: ^byte, hints: ^Addrinfo, res: ^^Addrinfo) -> c.int ---;
+	socket        :: proc(domain: AddrFamily, typ: Type, protocol: c.int) -> os.Handle ---;
+	accept        :: proc(sockfd: os.Handle, addr: ^Addr, addrlen: c.uint) -> os.Handle ---;
+	accept4       :: proc(sockfd: os.Handle, addr: ^Addr, addrlen: c.uint, flags: c.int) -> os.Handle ---;
+	bind          :: proc(sockfd: os.Handle, addr: ^Addrin, addrlen: c.uint) -> c.int ---;
+	connect       :: proc(sockfd: os.Handle, addr: ^Addr, addrlen: c.uint) -> c.int ---;
+	getsockname   :: proc(sockfd: os.Handle, addr: ^Addr, addrlen: c.uint) -> c.int ---;
+	listen        :: proc(sockfd: os.Handle, backlog: c.int) -> c.int ---;
+	getifaddrs    :: proc(ifap: ^Ifaddrs) -> c.int ---;
+	freeifaddrs   :: proc(ifa: Ifaddrs) ---;
+	getaddrinfo   :: proc(node, service: cstring, hints: ^Addrinfo, res: ^^Addrinfo) -> AddrinfoError ---;
 	freeaddrinfo  :: proc(res: ^Addrinfo) ---;
-	gai_strerror  :: proc(res: ^Addrinfo) -> ^byte ---;
-	gethostbyname :: proc(name: ^byte) -> ^Hostent ---;
+	getnameinfo   :: proc(addr: ^Addr, addrlen: c.uint, host: cstring, hostlen: c.uint, serv: cstring, servlen: c.uint, flags: c.int) -> c.int ---;
+	gai_strerror  :: proc(res: ^Addrinfo) -> cstring ---;
+	gethostbyname :: proc(name: cstring) -> ^Hostent ---;
 	gethostbyaddr :: proc(addr: rawptr, len: c.uint, typ: c.int) -> ^Hostent ---;
 	sethostent    :: proc(stayopen: c.int) ---;
 	endhostent    :: proc() ---;
-	herror        :: proc(s: ^byte) ---;
-	hstrerror     :: proc(err: c.int) -> ^byte ---;
+	herror        :: proc(s: cstring) ---;
+	hstrerror     :: proc(err: c.int) -> cstring ---;
 	gethostent    :: proc() -> ^Hostent ---;
 
 	htonl         :: proc(hostlong: u32) -> u32 ---;
@@ -141,15 +200,18 @@ foreign libc {
 	ntohs         :: proc(netshort: u16) -> u16 ---;
 }
 
+HostErrno :: enum c.int {
+	HOST_NOT_FOUND = 1,       // Authoritive Answer Host not found
+	TRY_AGAIN      = 2,       // Non-Authoritive Host not found, or SERVERFAIL
+	NO_RECOVERY    = 3,       // Non recoverable errors, FORMERR, REFUSED, NOTIMP
+	NO_DATA        = 4,       // Valid name, no data record of requested type
+	NO_ADDRESS     = NO_DATA, // no address, look for MX record
+}
+
+// h_errno :: HostErrno; TODO(renehsz): this is a foreign C variable, how do we declare that in Odin?
 
 
-// Error codes
-HOST_NOT_FOUND ::  1;     // Authoritive Answer Host not found
-TRY_AGAIN      ::  2;     // Non-Authoritive Host not found, or SERVERFAIL
-NO_RECOVERY    ::  3;     // Non recoverable errors, FORMERR, REFUSED, NOTIMP
-NO_DATA        ::  4;     // Valid name, no data record of requested type
-NO_ADDRESS     ::  NO_DATA; // no address, look for MX record
-
+// Linux error codes, should go into core
 EPERM          ::  1;      // Operation not permitted
 ENOENT         ::  2;      // No such file or directory
 ESRCH          ::  3;      // No such process
